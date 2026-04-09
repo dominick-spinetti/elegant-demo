@@ -58,6 +58,67 @@
       align-items: center;
     }
 
+    /* ── LANGUAGE TOGGLE ── */
+    .lang-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: transparent;
+      border: 1px solid rgba(201,169,110,0.35);
+      border-radius: 2px;
+      padding: 0.2rem 0.65rem;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gold);
+      transition: all 0.2s;
+      line-height: 1.6;
+    }
+
+    .lang-toggle:hover {
+      background: rgba(201,169,110,0.1);
+      border-color: var(--gold);
+    }
+
+    .lang-toggle .lang-globe {
+      font-size: 0.85rem;
+      line-height: 1;
+    }
+
+    .lang-toggle .lang-arrow {
+      font-size: 0.55rem;
+      opacity: 0.65;
+      margin-left: 0.1rem;
+    }
+
+    /* ── LANG SWITCH TOAST ── */
+    .lang-toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--dark-mid);
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-size: 0.72rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 0.6rem 1.4rem;
+      border-radius: 2px;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    .lang-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
     /* ── HEADER ── */
     header {
       position: fixed;
@@ -218,27 +279,6 @@
       display: flex;
       gap: 1rem;
       flex-wrap: wrap;
-    }
-
-    .hero-scroll {
-      position: absolute;
-      bottom: 2rem;
-      right: 2rem;
-      z-index: 2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
-      color: rgba(247,249,248,0.4);
-      font-size: 0.65rem;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-    }
-
-    .scroll-line {
-      width: 1px;
-      height: 48px;
-      background: linear-gradient(to bottom, var(--gold), transparent);
     }
 
     /* ── STAT ROW ── */
@@ -507,6 +547,37 @@
   </style>
 
   <script>
+    // ─────────────────────────────────────────────────────────────
+    // LANGUAGE SWITCHING LOGIC
+    // Reads saved locale from localStorage (defaults to en-US).
+    // On toggle: updates all three CXone calls, saves to storage,
+    // then reloads so the routing variable takes effect in Studio.
+    // ─────────────────────────────────────────────────────────────
+    const LOCALE_KEY = 'elegant_locale';
+    const savedLocale = localStorage.getItem(LOCALE_KEY) || 'en-US';
+    const isSpanish = savedLocale === 'es-ES';
+
+    // Reflect current lang on <html> for reference
+    document.documentElement.lang = isSpanish ? 'es' : 'en';
+
+    function switchLanguage() {
+      const nextLocale = isSpanish ? 'en-US' : 'es-ES';
+      localStorage.setItem(LOCALE_KEY, nextLocale);
+
+      // 1. Update Studio routing variable
+      cxone('chat', 'setContactCustomField', 'new_lang', nextLocale);
+
+      // 2. Update widget display locale
+      cxone('chat', 'setLocale', nextLocale);
+
+      // 3. Reinitialize Guide with new locale
+      cxone('guide', 'init', { locale: nextLocale });
+
+      // 4. Reload so the routing variable takes effect on next contact
+      window.location.reload();
+    }
+
+    // ── CXone SDK Bootstrap ──────────────────────────────────────
     (function(n, u) {
       window.CXoneDfo = n;
       window[n] = window[n] || function() {
@@ -520,15 +591,17 @@
       document.head.appendChild(e);
     })("cxone", "https://web-modules-de-na1.niceincontact.com/loader/1/loader.js");
 
+    // ── Init with saved locale ───────────────────────────────────
     cxone("init", "5748");
-    cxone("guide", "init");
+    cxone("guide", "init", { locale: savedLocale });   // 1. Bootstrap Guide with locale first
+    cxone("chat", "setLocale", savedLocale);           // 2. Set widget UI locale
+    cxone("chat", "setContactCustomField", "new_lang", savedLocale);  // 3. Set Studio routing variable
 
     cxone("chat", "hideAssignedAgent");
     cxone("chat", "enableCloseIcon", true);
     cxone("chat", "setCustomerName", "Kurtis Blow");
     cxone("chat", "setContactCustomField", "email", "kblow@email.com");
     cxone("chat", "setContactCustomField", "phone", "4801231234");
-    cxone("chat", "setContactCustomField", "new_lang", "en-US");
     cxone("guide", "setDesiredGuideWidth", "400px");
     cxone("guide", "setDesiredGuideHeight", "600px");
     cxone("guide", "setButtonSize", "70px");
@@ -563,11 +636,21 @@
 </head>
 <body>
 
+  <!-- Toast notification -->
+  <div class="lang-toast" id="langToast"></div>
+
   <header>
     <div class="tertiary-bar">
       <a href="#">Visit Vidanta.com</a>
       <div class="tertiary-right">
-        <span>🌐 EN</span>
+
+        <!-- ── LANGUAGE TOGGLE ── -->
+        <button class="lang-toggle" id="langToggle" onclick="switchLanguage()" title="Switch language / Cambiar idioma">
+          <span class="lang-globe">🌐</span>
+          <span id="langLabel"></span>
+          <span class="lang-arrow">▼</span>
+        </button>
+
         <span>📞 Contact Us</span>
       </div>
     </div>
@@ -588,7 +671,6 @@
   </header>
 
   <section class="hero">
-    <!-- <div class="hero-media"></div> -->
     <div class="hero-yacht"></div>
 
     <div class="hero-content">
@@ -601,13 +683,6 @@
         <a href="#" class="btn-call">Explore Voyages</a>
       </div>
     </div>
-
-    <!--
-    <div class="hero-scroll">
-      <div class="scroll-line"></div>
-      <span>Scroll</span>
-    </div>
-    -->
   </section>
 
   <div class="stat-row">
@@ -762,6 +837,32 @@
       <span>© 2026 VidantaWorld. All rights reserved.</span>
     </div>
   </footer>
+
+  <script>
+    // ── Set toggle label to reflect current locale on load ──────
+    const lbl = document.getElementById('langLabel');
+    lbl.textContent = isSpanish ? 'ES' : 'EN';
+
+    // ── Brief toast to confirm language after reload ────────────
+    const toast = document.getElementById('langToast');
+    const justSwitched = sessionStorage.getItem('lang_switched');
+
+    if (justSwitched) {
+      sessionStorage.removeItem('lang_switched');
+      toast.textContent = isSpanish
+        ? '🌐 Idioma cambiado a Español'
+        : '🌐 Language switched to English';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // Mark that a switch happened so the toast fires after reload
+    const origSwitch = switchLanguage;
+    window.switchLanguage = function() {
+      sessionStorage.setItem('lang_switched', '1');
+      origSwitch();
+    };
+  </script>
 
 </body>
 </html>
